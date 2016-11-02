@@ -1,0 +1,11 @@
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd" >
+
+<suite name="TheSuite" verbose="0" parallel="none" thread-count="1">
+    <test name="Testing">
+        <groups>
+            <!-- Tests ran by Travis CI -->
+            <define name="travis-ci">
+            </define>
+        </groups>
+    </test>
+</suite>
