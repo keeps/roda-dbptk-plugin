@@ -19,7 +19,9 @@ import org.roda.core.data.exceptions.RODAException;
 import org.roda.core.data.v2.common.OptionalWithCause;
 import org.roda.core.data.v2.ip.AIP;
 import org.roda.core.data.v2.ip.AIPState;
+import org.roda.core.data.v2.ip.DIP;
 import org.roda.core.data.v2.ip.File;
+import org.roda.core.data.v2.ip.FileLink;
 import org.roda.core.data.v2.ip.IndexedFile;
 import org.roda.core.data.v2.ip.Representation;
 import org.roda.core.data.v2.ip.StoragePath;
@@ -63,12 +65,22 @@ public class DatabaseVisualizationPlugin extends AbstractPlugin<AIP> {
     pluginParameters.put(PluginConstants.PARAMETER_ZOOKEEPER_PORT, new PluginParameter(
       PluginConstants.PARAMETER_ZOOKEEPER_PORT, "Zookeeper port", PluginParameter.PluginParameterType.STRING,
       PluginConstants.getDefaultZookeeperPort(), false, false, "The port at which DBVTK Zookeeper can be reached."));
+    pluginParameters.put(PluginConstants.PARAMETER_VISUALIZATION_HOSTNAME, new PluginParameter(
+      PluginConstants.PARAMETER_VISUALIZATION_HOSTNAME, "DBVTK hostname", PluginParameter.PluginParameterType.STRING,
+      PluginConstants.getDefaultVisualizationHostname(), false, false,
+      "The address at which DBVTK web interface can be reached."));
+    pluginParameters.put(PluginConstants.PARAMETER_VISUALIZATION_PORT, new PluginParameter(
+      PluginConstants.PARAMETER_VISUALIZATION_PORT, "DBVTK port", PluginParameter.PluginParameterType.STRING,
+      PluginConstants.getDefaultVisualizationPort(), false, false,
+      "The port at which DBVTK web interface can be reached."));
   }
 
   private String solrHostname;
   private String solrPort;
   private String zookeeperHostname;
   private String zookeeperPort;
+  private String visualizationHostname;
+  private String visualizationPort;
 
   @Override
   public String getVersionImpl() {
@@ -262,15 +274,29 @@ public class DatabaseVisualizationPlugin extends AbstractPlugin<AIP> {
                     StoragePath fileStoragePath = ModelUtils.getFileStoragePath(file);
                     DirectResourceAccess directAccess = storage.getDirectAccess(fileStoragePath);
                     Path siardPath = directAccess.getPath();
+                    DIP dip = new DIP();
 
                     // FIXME 20161103 bferreira use provided solr/zookeeper
                     // configuration parameters
                     LOGGER.error("path1 {}", siardPath.toAbsolutePath().toString());
                     LOGGER.error("path2 {}", siardPath.toString());
                     int exitStatus = Main.internal_main("-i", "siard-2", "-if", siardPath.toAbsolutePath().toString(),
-                      "-e", "solr", "-eh", solrHostname, "-ep", solrPort, "-ezh", zookeeperHostname, "-ezp", zookeeperPort);
+                      "-e", "solr", "-eh", solrHostname, "-ep", solrPort, "-ezh", zookeeperHostname, "-ezp",
+                      zookeeperPort, "-edbid", dip.getId());
 
-                    if (exitStatus != 0) {
+                    if (exitStatus == 0) {
+                      dip.setOpenExternalURL(getDIPOpenURL(dip));
+                      dip.setDeleteExternalURL(getDIPDeleteURL(dip));
+                      dip.setDescription("some description for " + dip.getId());
+                      dip.setTitle("the title for " + dip.getId());
+                      dip.setIsPermanent(false);
+                      // TODO: (bferreira) ask lfaria about permissions
+                      dip.setPermissions(aip.getPermissions());
+                      FileLink fileLink = new FileLink(aip.getId(), representation.getId(), file.getPath(),
+                        file.getId());
+                      dip.addFile(fileLink);
+                      model.createDIP(dip, true);
+                    } else {
                       pluginResultState = PluginState.PARTIAL_SUCCESS;
                     }
 
@@ -352,6 +378,8 @@ public class DatabaseVisualizationPlugin extends AbstractPlugin<AIP> {
     parameters.add(pluginParameters.get(PluginConstants.PARAMETER_SOLR_PORT));
     parameters.add(pluginParameters.get(PluginConstants.PARAMETER_ZOOKEEPER_HOSTNAME));
     parameters.add(pluginParameters.get(PluginConstants.PARAMETER_ZOOKEEPER_PORT));
+    parameters.add(pluginParameters.get(PluginConstants.PARAMETER_VISUALIZATION_HOSTNAME));
+    parameters.add(pluginParameters.get(PluginConstants.PARAMETER_VISUALIZATION_PORT));
     return parameters;
   }
 
@@ -362,5 +390,16 @@ public class DatabaseVisualizationPlugin extends AbstractPlugin<AIP> {
     solrPort = parameters.get(PluginConstants.PARAMETER_SOLR_PORT);
     zookeeperHostname = parameters.get(PluginConstants.PARAMETER_ZOOKEEPER_HOSTNAME);
     zookeeperPort = parameters.get(PluginConstants.PARAMETER_ZOOKEEPER_PORT);
+    visualizationHostname = parameters.get(PluginConstants.PARAMETER_VISUALIZATION_HOSTNAME);
+    visualizationPort = parameters.get(PluginConstants.PARAMETER_VISUALIZATION_PORT);
+  }
+
+  private String getDIPOpenURL(DIP dip) {
+    return "http://" + visualizationHostname + ":" + visualizationPort + "/index.html#database/" + dip.getId();
+  }
+
+  private String getDIPDeleteURL(DIP dip) {
+    return "http://" + visualizationHostname + ":" + visualizationPort + "/api/v1/manage/database/" + dip.getId()
+      + "/destroy";
   }
 }
