@@ -65,22 +65,32 @@ public class DatabaseVisualizationPlugin extends AbstractPlugin<AIP> {
     pluginParameters.put(PluginConstants.PARAMETER_ZOOKEEPER_PORT, new PluginParameter(
       PluginConstants.PARAMETER_ZOOKEEPER_PORT, "Zookeeper port", PluginParameter.PluginParameterType.STRING,
       PluginConstants.getDefaultZookeeperPort(), false, false, "The port at which DBVTK Zookeeper can be reached."));
-    pluginParameters.put(PluginConstants.PARAMETER_VISUALIZATION_HOSTNAME, new PluginParameter(
-      PluginConstants.PARAMETER_VISUALIZATION_HOSTNAME, "DBVTK hostname", PluginParameter.PluginParameterType.STRING,
-      PluginConstants.getDefaultVisualizationHostname(), false, false,
-      "The address at which DBVTK web interface can be reached."));
-    pluginParameters.put(PluginConstants.PARAMETER_VISUALIZATION_PORT, new PluginParameter(
-      PluginConstants.PARAMETER_VISUALIZATION_PORT, "DBVTK port", PluginParameter.PluginParameterType.STRING,
-      PluginConstants.getDefaultVisualizationPort(), false, false,
-      "The port at which DBVTK web interface can be reached."));
+    pluginParameters.put(PluginConstants.PARAMETER_VISUALIZATION_OPEN_HOSTNAME, new PluginParameter(
+      PluginConstants.PARAMETER_VISUALIZATION_OPEN_HOSTNAME, "DBVTK open hostname",
+      PluginParameter.PluginParameterType.STRING, PluginConstants.getDefaultVisualizationOpenHostname(), false, false,
+      "The address at which DBVTK web interface can be reached to access a database."));
+    pluginParameters.put(PluginConstants.PARAMETER_VISUALIZATION_OPEN_PORT, new PluginParameter(
+      PluginConstants.PARAMETER_VISUALIZATION_OPEN_PORT, "DBVTK open port", PluginParameter.PluginParameterType.STRING,
+      PluginConstants.getDefaultVisualizationOpenPort(), false, false,
+      "The port at which DBVTK web interface can be reached to access a database."));
+    pluginParameters.put(PluginConstants.PARAMETER_VISUALIZATION_DELETE_HOSTNAME, new PluginParameter(
+      PluginConstants.PARAMETER_VISUALIZATION_DELETE_HOSTNAME, "DBVTK delete hostname",
+      PluginParameter.PluginParameterType.STRING, PluginConstants.getDefaultVisualizationDeleteHostname(), false,
+      false, "The address at which DBVTK web interface can be reached to delete a database."));
+    pluginParameters.put(PluginConstants.PARAMETER_VISUALIZATION_DELETE_PORT, new PluginParameter(
+      PluginConstants.PARAMETER_VISUALIZATION_DELETE_PORT, "DBVTK delete port",
+      PluginParameter.PluginParameterType.STRING, PluginConstants.getDefaultVisualizationDeletePort(), false, false,
+      "The port at which DBVTK web interface can be reached to delete a database."));
   }
 
   private String solrHostname;
   private String solrPort;
   private String zookeeperHostname;
   private String zookeeperPort;
-  private String visualizationHostname;
-  private String visualizationPort;
+  private String visualizationOpenHostname;
+  private String visualizationOpenPort;
+  private String visualizationDeleteHostname;
+  private String visualizationDeletePort;
 
   @Override
   public String getVersionImpl() {
@@ -268,7 +278,6 @@ public class DatabaseVisualizationPlugin extends AbstractPlugin<AIP> {
                       file.getId()), '/');
 
                   // FIXME 20161103 bferreira use other means to identify siard2
-                  // files
                   if ("siard".equalsIgnoreCase(fileFormat)) {
                     LOGGER.debug("Running veraPDF validator on {}", file.getId());
                     StoragePath fileStoragePath = ModelUtils.getFileStoragePath(file);
@@ -276,7 +285,6 @@ public class DatabaseVisualizationPlugin extends AbstractPlugin<AIP> {
                     Path siardPath = directAccess.getPath();
                     DIP dip = new DIP();
 
-                    // FIXME 20161103 bferreira use provided solr/zookeeper
                     // configuration parameters
                     LOGGER.error("path1 {}", siardPath.toAbsolutePath().toString());
                     LOGGER.error("path2 {}", siardPath.toString());
@@ -285,16 +293,16 @@ public class DatabaseVisualizationPlugin extends AbstractPlugin<AIP> {
                       zookeeperPort, "-edbid", dip.getId());
 
                     if (exitStatus == 0) {
-                      dip.setOpenExternalURL(getDIPOpenURL(dip));
-                      dip.setDeleteExternalURL(getDIPDeleteURL(dip));
-                      dip.setDescription("some description for " + dip.getId());
-                      dip.setTitle("the title for " + dip.getId());
+                      dip.setType(PluginConstants.DIP_TYPE);
+                      dip.setDescription("Lightweight web viewer for relational databases, specially if preserved "
+                        + "in SIARD 2, that uses SOLR as a backend, and allows browsing, search, and export.");
+                      dip.setTitle("Database Visualization Toolkit");
                       dip.setIsPermanent(false);
-                      // TODO: (bferreira) ask lfaria about permissions
                       dip.setPermissions(aip.getPermissions());
                       FileLink fileLink = new FileLink(aip.getId(), representation.getId(), file.getPath(),
                         file.getId());
                       dip.addFile(fileLink);
+                      dip.setProperties(getDipProperties(dip));
                       model.createDIP(dip, true);
                     } else {
                       pluginResultState = PluginState.PARTIAL_SUCCESS;
@@ -378,8 +386,10 @@ public class DatabaseVisualizationPlugin extends AbstractPlugin<AIP> {
     parameters.add(pluginParameters.get(PluginConstants.PARAMETER_SOLR_PORT));
     parameters.add(pluginParameters.get(PluginConstants.PARAMETER_ZOOKEEPER_HOSTNAME));
     parameters.add(pluginParameters.get(PluginConstants.PARAMETER_ZOOKEEPER_PORT));
-    parameters.add(pluginParameters.get(PluginConstants.PARAMETER_VISUALIZATION_HOSTNAME));
-    parameters.add(pluginParameters.get(PluginConstants.PARAMETER_VISUALIZATION_PORT));
+    parameters.add(pluginParameters.get(PluginConstants.PARAMETER_VISUALIZATION_OPEN_HOSTNAME));
+    parameters.add(pluginParameters.get(PluginConstants.PARAMETER_VISUALIZATION_OPEN_PORT));
+    parameters.add(pluginParameters.get(PluginConstants.PARAMETER_VISUALIZATION_DELETE_HOSTNAME));
+    parameters.add(pluginParameters.get(PluginConstants.PARAMETER_VISUALIZATION_DELETE_PORT));
     return parameters;
   }
 
@@ -390,16 +400,19 @@ public class DatabaseVisualizationPlugin extends AbstractPlugin<AIP> {
     solrPort = parameters.get(PluginConstants.PARAMETER_SOLR_PORT);
     zookeeperHostname = parameters.get(PluginConstants.PARAMETER_ZOOKEEPER_HOSTNAME);
     zookeeperPort = parameters.get(PluginConstants.PARAMETER_ZOOKEEPER_PORT);
-    visualizationHostname = parameters.get(PluginConstants.PARAMETER_VISUALIZATION_HOSTNAME);
-    visualizationPort = parameters.get(PluginConstants.PARAMETER_VISUALIZATION_PORT);
+    visualizationOpenHostname = parameters.get(PluginConstants.PARAMETER_VISUALIZATION_OPEN_HOSTNAME);
+    visualizationOpenPort = parameters.get(PluginConstants.PARAMETER_VISUALIZATION_OPEN_PORT);
+    visualizationDeleteHostname = parameters.get(PluginConstants.PARAMETER_VISUALIZATION_DELETE_HOSTNAME);
+    visualizationDeletePort = parameters.get(PluginConstants.PARAMETER_VISUALIZATION_DELETE_PORT);
   }
 
-  private String getDIPOpenURL(DIP dip) {
-    return "http://" + visualizationHostname + ":" + visualizationPort + "/index.html#database/" + dip.getId();
-  }
-
-  private String getDIPDeleteURL(DIP dip) {
-    return "http://" + visualizationHostname + ":" + visualizationPort + "/api/v1/manage/database/" + dip.getId()
-      + "/destroy";
+  private Map<String, String> getDipProperties(DIP dip) {
+    HashMap<String, String> properties = new HashMap<>();
+    properties.put("openHostname", visualizationOpenHostname);
+    properties.put("openPort", visualizationOpenPort);
+    properties.put("deleteHostname", visualizationDeleteHostname);
+    properties.put("deletePort", visualizationDeletePort);
+    properties.put("database", dip.getId());
+    return properties;
   }
 }
