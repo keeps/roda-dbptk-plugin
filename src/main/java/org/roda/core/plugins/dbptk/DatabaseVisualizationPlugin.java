@@ -8,6 +8,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.databasepreservation.model.exception.InvalidDataException;
+import com.databasepreservation.model.exception.LicenseNotAcceptedException;
+import com.databasepreservation.model.exception.ModuleException;
+import com.databasepreservation.model.exception.UnknownTypeException;
+import com.databasepreservation.model.modules.DatabaseExportModule;
+import com.databasepreservation.model.modules.DatabaseImportModule;
+import com.databasepreservation.model.modules.DatabaseModuleFactory;
+import com.databasepreservation.model.parameters.Parameter;
+import com.databasepreservation.modules.siard.SIARD2ModuleFactory;
+import com.databasepreservation.modules.siard.in.input.SIARD2ImportModule;
+import com.databasepreservation.modules.solr.SolrModuleFactory;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.roda.core.common.IdUtils;
@@ -42,7 +53,7 @@ import org.roda.core.storage.StorageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.databasepreservation.Main;
+import javax.naming.OperationNotSupportedException;
 
 public class DatabaseVisualizationPlugin extends AbstractPlugin<AIP> {
   private static final Logger LOGGER = LoggerFactory.getLogger(DatabaseVisualizationPlugin.class);
@@ -285,14 +296,9 @@ public class DatabaseVisualizationPlugin extends AbstractPlugin<AIP> {
                     Path siardPath = directAccess.getPath();
                     DIP dip = new DIP();
 
-                    // configuration parameters
-                    LOGGER.error("path1 {}", siardPath.toAbsolutePath().toString());
-                    LOGGER.error("path2 {}", siardPath.toString());
-                    int exitStatus = Main.internal_main("-i", "siard-2", "-if", siardPath.toAbsolutePath().toString(),
-                      "-e", "solr", "-eh", solrHostname, "-ep", solrPort, "-ezh", zookeeperHostname, "-ezp",
-                      zookeeperPort, "-edbid", dip.getId());
+                    boolean conversionCompleted = convert(siardPath, dip);
 
-                    if (exitStatus == 0) {
+                    if (conversionCompleted) {
                       dip.setType(PluginConstants.DIP_TYPE);
                       dip.setDescription("Lightweight web viewer for relational databases, specially if preserved "
                         + "in SIARD 2, that uses SOLR as a backend, and allows browsing, search, and export.");
@@ -414,5 +420,52 @@ public class DatabaseVisualizationPlugin extends AbstractPlugin<AIP> {
     properties.put("deletePort", visualizationDeletePort);
     properties.put("database", dip.getId());
     return properties;
+  }
+
+  private boolean convert(Path siardPath, DIP dip){
+    boolean conversionCompleted = false;
+    LOGGER.info("starting to convert database " + siardPath.toAbsolutePath().toString());
+
+    // build the SIARD import module
+    DatabaseImportModule siardImportModule = null;
+    try {
+      // create
+      DatabaseModuleFactory siardImportFactory = new SIARD2ModuleFactory();
+      Map<Parameter, String> siardParameters = new HashMap<>();
+      siardParameters.put(siardImportFactory.getAllParameters().get("file"), siardPath.toAbsolutePath().toString());
+      siardImportModule = siardImportFactory.buildImportModule(siardParameters);
+    } catch (OperationNotSupportedException | LicenseNotAcceptedException e) {
+      LOGGER.error("Could not initialize SIARD import module", e);
+    }
+
+    // build the Solr export module
+    DatabaseExportModule solrExportModule = null;
+    try {
+      // create
+      DatabaseModuleFactory solrExportFactory = new SolrModuleFactory();
+      Map<Parameter, String> solrParameters = new HashMap<>();
+      solrParameters.put(solrExportFactory.getAllParameters().get("hostname"), solrHostname);
+      solrParameters.put(solrExportFactory.getAllParameters().get("port"), solrPort);
+      solrParameters.put(solrExportFactory.getAllParameters().get("zookeeper-hostname"), zookeeperHostname);
+      solrParameters.put(solrExportFactory.getAllParameters().get("zookeeper-port"), zookeeperPort);
+      solrParameters.put(solrExportFactory.getAllParameters().get("database-id"), dip.getId());
+      solrExportModule = solrExportFactory.buildExportModule(solrParameters);
+    } catch (OperationNotSupportedException | LicenseNotAcceptedException e) {
+      LOGGER.error("Could not initialize Solr export module", e);
+    }
+
+    if(siardImportModule != null && solrExportModule != null){
+      long startTime = System.currentTimeMillis();
+      try {
+        siardImportModule.getDatabase(solrExportModule);
+        conversionCompleted = true;
+      } catch (ModuleException | UnknownTypeException | InvalidDataException e) {
+        LOGGER.error("Could not convert the database to the Solr instance.", e);
+      }
+      long duration = System.currentTimeMillis() - startTime;
+      LOGGER.info("Conversion time " + (duration / 60000) + "m " + (duration % 60000 / 1000) + "s");
+    }
+
+    return conversionCompleted;
   }
 }
