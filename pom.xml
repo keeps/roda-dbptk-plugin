@@ -21,6 +21,7 @@
 		<build.date>${maven.build.timestamp}</build.date>
 		<java_version>1.8</java_version>
 		<testng.groups>all</testng.groups>
+		<dbptk.version>2.0.0-beta6.2</dbptk.version>
 	</properties>
 
 	<build>
@@ -103,11 +104,6 @@
 									</excludes>
 								</filter>
 							</filters>
-							<artifactSet>
-								<excludes>
-									<exclude>org.roda-project:roda-core</exclude>
-								</excludes>
-							</artifactSet>
 						</configuration>
 					</execution>
 				</executions>
@@ -115,17 +111,12 @@
 		</plugins>
 	</build>
 	<dependencies>
-		<dependency>
-			<groupId>com.databasepreservation</groupId>
-			<artifactId>dbptk-module-solr</artifactId>
-			<version>2.0.0-beta6.1</version>
-		</dependency>
 		<!-- dependency: RODA -->
 		<dependency>
 			<groupId>org.roda-project</groupId>
 			<artifactId>roda-core</artifactId>
-			<scope>compile</scope>
 			<version>2.0.0-alpha19</version>
+			<scope>provided</scope>
 			<exclusions>
 				<exclusion>
 					<groupId>org.apache.solr</groupId>
@@ -141,12 +132,17 @@
 		<dependency>
 			<groupId>com.databasepreservation</groupId>
 			<artifactId>dbptk-model</artifactId>
-			<version>2.0.0-beta6.1</version>
+			<version>${dbptk.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>com.databasepreservation</groupId>
 			<artifactId>dbptk-module-siard</artifactId>
-			<version>2.0.0-beta6.2</version>
+			<version>${dbptk.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.databasepreservation</groupId>
+			<artifactId>dbptk-module-solr</artifactId>
+			<version>${dbptk.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.testng</groupId>
