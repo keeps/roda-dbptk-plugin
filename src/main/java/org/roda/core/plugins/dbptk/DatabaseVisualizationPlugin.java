@@ -311,7 +311,7 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
         } catch (RequestNotValidException | NotFoundException | GenericException | AuthorizationDeniedException
           | IllegalArgumentException e) {
           jobPluginInfo.incrementObjectsProcessedWithFailure();
-          LOGGER.error("Could not run VeraPDF successfully");
+          LOGGER.error("Could not run DBPTK successfully");
           reportState = PluginState.FAILURE;
           reportItem.setPluginDetails(e.getMessage());
           jobPluginInfo.incrementObjectsProcessedWithFailure();
@@ -337,7 +337,7 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
     throws RequestNotValidException, GenericException, AuthorizationDeniedException, NotFoundException {
     // FIXME 20161103 bferreira use other means to identify siard2
     if ("siard".equalsIgnoreCase(fileFormat)) {
-      LOGGER.debug("Running veraPDF validator on {}", file.getId());
+      LOGGER.debug("Converting {} to the database viewer", file.getId());
       StoragePath fileStoragePath = ModelUtils.getFileStoragePath(file);
       DirectResourceAccess directAccess = storage.getDirectAccess(fileStoragePath);
       Path siardPath = directAccess.getPath();
