@@ -18,7 +18,6 @@ import org.roda.core.data.common.RodaConstants;
 import org.roda.core.data.exceptions.AuthorizationDeniedException;
 import org.roda.core.data.exceptions.GenericException;
 import org.roda.core.data.exceptions.InvalidParameterException;
-import org.roda.core.data.exceptions.JobException;
 import org.roda.core.data.exceptions.NotFoundException;
 import org.roda.core.data.exceptions.RODAException;
 import org.roda.core.data.exceptions.RequestNotValidException;
@@ -34,6 +33,7 @@ import org.roda.core.data.v2.ip.IndexedFile;
 import org.roda.core.data.v2.ip.Permissions;
 import org.roda.core.data.v2.ip.Representation;
 import org.roda.core.data.v2.ip.StoragePath;
+import org.roda.core.data.v2.jobs.Job;
 import org.roda.core.data.v2.jobs.PluginParameter;
 import org.roda.core.data.v2.jobs.PluginType;
 import org.roda.core.data.v2.jobs.Report;
@@ -41,7 +41,7 @@ import org.roda.core.data.v2.jobs.Report.PluginState;
 import org.roda.core.index.IndexService;
 import org.roda.core.model.ModelService;
 import org.roda.core.model.utils.ModelUtils;
-import org.roda.core.plugins.AbstractPlugin;
+import org.roda.core.plugins.AbstractAIPComponentsPlugin;
 import org.roda.core.plugins.Plugin;
 import org.roda.core.plugins.PluginException;
 import org.roda.core.plugins.orchestrate.SimpleJobPluginInfo;
@@ -62,7 +62,7 @@ import com.databasepreservation.model.parameters.Parameter;
 import com.databasepreservation.modules.siard.SIARD2ModuleFactory;
 import com.databasepreservation.modules.solr.SolrModuleFactory;
 
-public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends AbstractPlugin<T> {
+public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends AbstractAIPComponentsPlugin<T> {
   private static final Logger LOGGER = LoggerFactory.getLogger(DatabaseVisualizationPlugin.class);
 
   /**
@@ -252,81 +252,49 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
     return new Report();
   }
 
-  @Override
-  public Report execute(IndexService index, ModelService model, StorageService storage, List<T> list)
-    throws PluginException {
+  protected Report executeOnFile(IndexService index, ModelService model, StorageService storage, Report report,
+    SimpleJobPluginInfo jobPluginInfo, List<File> list, Job job) throws PluginException {
+    for (File file : list) {
+      Report reportItem = PluginHelper.initPluginReportItem(this, IdUtils.getFileId(file), File.class,
+        AIPState.INGEST_PROCESSING);
+      PluginState reportState = PluginState.SUCCESS;
 
-    if (!list.isEmpty()) {
-      if (list.get(0) instanceof AIP) {
-        return executeOnAIP(index, model, storage, (List<AIP>) list);
-      } else if (list.get(0) instanceof Representation) {
-        return executeOnRepresentation(index, model, storage, (List<Representation>) list);
-      } else if (list.get(0) instanceof File) {
-        return executeOnFile(index, model, storage, (List<File>) list);
-      }
-    }
+      try {
+        PluginHelper.updatePartialJobReport(this, model, index, reportItem, false, job);
+        PluginState pluginResultState = PluginState.SUCCESS;
 
-    return new Report();
-  }
+        LOGGER.debug("Processing file: {}", file);
+        if (!file.isDirectory()) {
 
-  public Report executeOnFile(IndexService index, ModelService model, StorageService storage, List<File> list)
-    throws PluginException {
+          IndexedAIP aip = index.retrieve(IndexedAIP.class, file.getAipId());
 
-    Report report = PluginHelper.initPluginReport(this);
-
-    try {
-      SimpleJobPluginInfo jobPluginInfo = PluginHelper.getInitialJobInformation(this, list.size());
-      PluginHelper.updateJobInformation(this, jobPluginInfo);
-
-      for (File file : list) {
-        Report reportItem = PluginHelper.initPluginReportItem(this, IdUtils.getFileId(file), File.class,
-          AIPState.INGEST_PROCESSING);
-        PluginState reportState = PluginState.SUCCESS;
-
-        try {
-          List<File> resourceList = new ArrayList<File>();
-          PluginHelper.updatePartialJobReport(this, model, index, reportItem, false);
-          PluginState pluginResultState = PluginState.SUCCESS;
-
-          LOGGER.debug("Processing file: {}", file);
-          if (!file.isDirectory()) {
-
-            IndexedAIP aip = index.retrieve(IndexedAIP.class, file.getAipId());
-
-            IndexedFile ifile = index.retrieve(IndexedFile.class, IdUtils.getFileId(file));
-            String fileFormat = ifile.getId().substring(ifile.getId().lastIndexOf('.') + 1, ifile.getId().length());
-            String fileInfoPath = StringUtils.join(
-              Arrays.asList(file.getAipId(), file.getRepresentationId(), StringUtils.join(file.getPath(), '/'),
-                file.getId()), '/');
-            pluginResultState = convertToViewer(model, storage, file, reportItem, pluginResultState, fileFormat,
-              fileInfoPath, aip.getPermissions());
-          }
-
-          if (!pluginResultState.equals(PluginState.SUCCESS)) {
-            reportState = PluginState.FAILURE;
-          }
-
-          jobPluginInfo.incrementObjectsProcessed(reportState);
-
-        } catch (RequestNotValidException | NotFoundException | GenericException | AuthorizationDeniedException
-          | IllegalArgumentException e) {
-          jobPluginInfo.incrementObjectsProcessedWithFailure();
-          LOGGER.error("Could not run DBPTK successfully");
-          reportState = PluginState.FAILURE;
-          reportItem.setPluginDetails(e.getMessage());
-          jobPluginInfo.incrementObjectsProcessedWithFailure();
-        } finally {
-          reportItem.setPluginState(reportState);
-          report.addReport(reportItem);
-          PluginHelper.updatePartialJobReport(this, model, index, reportItem, true);
-          PluginHelper.updateJobInformation(this, jobPluginInfo);
+          IndexedFile ifile = index.retrieve(IndexedFile.class, IdUtils.getFileId(file));
+          String fileFormat = ifile.getId().substring(ifile.getId().lastIndexOf('.') + 1, ifile.getId().length());
+          String fileInfoPath = StringUtils.join(
+            Arrays.asList(file.getAipId(), file.getRepresentationId(), StringUtils.join(file.getPath(), '/'),
+              file.getId()), '/');
+          pluginResultState = convertToViewer(model, storage, file, reportItem, pluginResultState, fileFormat,
+            fileInfoPath, aip.getPermissions());
         }
-      }
 
-      jobPluginInfo.finalizeInfo();
-      PluginHelper.updateJobInformation(this, jobPluginInfo);
-    } catch (JobException e) {
-      throw new PluginException("A job exception has occurred", e);
+        if (!pluginResultState.equals(PluginState.SUCCESS)) {
+          reportState = PluginState.FAILURE;
+        }
+
+        jobPluginInfo.incrementObjectsProcessed(reportState);
+
+      } catch (RequestNotValidException | NotFoundException | GenericException | AuthorizationDeniedException
+        | IllegalArgumentException e) {
+        jobPluginInfo.incrementObjectsProcessedWithFailure();
+        LOGGER.error("Could not run DBPTK successfully", e);
+        reportState = PluginState.FAILURE;
+        reportItem.setPluginDetails(e.getMessage());
+        jobPluginInfo.incrementObjectsProcessedWithFailure();
+      } finally {
+        reportItem.setPluginState(reportState);
+        report.addReport(reportItem);
+        PluginHelper.updatePartialJobReport(this, model, index, reportItem, true, job);
+      }
     }
 
     return report;
@@ -372,80 +340,56 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
     return pluginResultState;
   }
 
-  public Report executeOnRepresentation(IndexService index, ModelService model, StorageService storage,
-    List<Representation> list) throws PluginException {
+  protected Report executeOnRepresentation(IndexService index, ModelService model, StorageService storage,
+    Report report, SimpleJobPluginInfo jobPluginInfo, List<Representation> list, Job job) throws PluginException {
 
-    Report report = PluginHelper.initPluginReport(this);
+    for (Representation representation : list) {
+      Report reportItem = PluginHelper.initPluginReportItem(this, IdUtils.getRepresentationId(representation),
+        Representation.class, AIPState.INGEST_PROCESSING);
+      PluginHelper.updatePartialJobReport(this, model, index, reportItem, false, job);
+      PluginState reportState = PluginState.SUCCESS;
 
-    try {
-      SimpleJobPluginInfo jobPluginInfo = PluginHelper.getInitialJobInformation(this, list.size());
-      PluginHelper.updateJobInformation(this, jobPluginInfo);
-
-      for (Representation representation : list) {
-        Report reportItem = PluginHelper.initPluginReportItem(this, IdUtils.getRepresentationId(representation),
-          Representation.class, AIPState.INGEST_PROCESSING);
-        PluginHelper.updatePartialJobReport(this, model, index, reportItem, false);
-        PluginState reportState = PluginState.SUCCESS;
-        StringBuilder details = new StringBuilder();
+      try {
         AIP aip = model.retrieveAIP(representation.getAipId());
-
+        LOGGER.debug("Creating DBVTK event on AIP {}", representation.getAipId());
         reportState = internalExecuteOnRepresentation(index, model, storage, aip, reportItem, reportState,
           representation);
-
-        LOGGER.debug("Creating DBVTK event on AIP {}", representation.getAipId());
-
-        jobPluginInfo.incrementObjectsProcessed(reportState);
-        reportItem.setPluginState(reportState);
-
-        report.addReport(reportItem);
-        PluginHelper.updatePartialJobReport(this, model, index, reportItem, true);
-        PluginHelper.updateJobInformation(this, jobPluginInfo);
+      } catch (RequestNotValidException | NotFoundException | GenericException | AuthorizationDeniedException e) {
+        LOGGER.error("Could not retrieve AIP for representation", e);
+        reportState = PluginState.FAILURE;
       }
 
-      jobPluginInfo.finalizeInfo();
-      PluginHelper.updateJobInformation(this, jobPluginInfo);
-    } catch (JobException | NotFoundException | RequestNotValidException | AuthorizationDeniedException
-      | GenericException e) {
-      throw new PluginException("A job exception has occurred", e);
+      jobPluginInfo.incrementObjectsProcessed(reportState);
+      reportItem.setPluginState(reportState);
+      report.addReport(reportItem);
+
+      PluginHelper.updatePartialJobReport(this, model, index, reportItem, true, job);
     }
 
     return report;
   }
 
-  public Report executeOnAIP(IndexService index, ModelService model, StorageService storage, List<AIP> list)
-    throws PluginException {
+  protected Report executeOnAIP(IndexService index, ModelService model, StorageService storage, Report report,
+    SimpleJobPluginInfo jobPluginInfo, List<AIP> list, Job job) throws PluginException {
 
-    Report report = PluginHelper.initPluginReport(this);
+    for (AIP aip : list) {
+      LOGGER.debug("Processing AIP {}", aip.getId());
+      Report reportItem = PluginHelper.initPluginReportItem(this, aip.getId(), AIP.class, AIPState.INGEST_PROCESSING);
+      PluginHelper.updatePartialJobReport(this, model, index, reportItem, false, job);
+      PluginState reportState = PluginState.SUCCESS;
 
-    try {
-      SimpleJobPluginInfo jobPluginInfo = PluginHelper.getInitialJobInformation(this, list.size());
-      PluginHelper.updateJobInformation(this, jobPluginInfo);
-
-      for (AIP aip : list) {
-        LOGGER.debug("Processing AIP {}", aip.getId());
-        Report reportItem = PluginHelper.initPluginReportItem(this, aip.getId(), AIP.class, AIPState.INGEST_PROCESSING);
-        PluginHelper.updatePartialJobReport(this, model, index, reportItem, false);
-        PluginState reportState = PluginState.SUCCESS;
-
-        for (Representation representation : aip.getRepresentations()) {
-          reportState = internalExecuteOnRepresentation(index, model, storage, aip, reportItem, reportState,
-            representation);
-        }
-
-        LOGGER.debug("Creating DBVTK event on AIP {}", aip.getId());
-
-        jobPluginInfo.incrementObjectsProcessed(reportState);
-        reportItem.setPluginState(reportState);
-
-        report.addReport(reportItem);
-        PluginHelper.updatePartialJobReport(this, model, index, reportItem, true);
-        PluginHelper.updateJobInformation(this, jobPluginInfo);
+      for (Representation representation : aip.getRepresentations()) {
+        reportState = internalExecuteOnRepresentation(index, model, storage, aip, reportItem, reportState,
+          representation);
       }
 
-      jobPluginInfo.finalizeInfo();
-      PluginHelper.updateJobInformation(this, jobPluginInfo);
-    } catch (JobException e) {
-      throw new PluginException("A job exception has occurred", e);
+      LOGGER.debug("Creating DBVTK event on AIP {}", aip.getId());
+
+      jobPluginInfo.incrementObjectsProcessed(reportState);
+      reportItem.setPluginState(reportState);
+
+      report.addReport(reportItem);
+      PluginHelper.updatePartialJobReport(this, model, index, reportItem, true, job);
     }
 
     return report;
