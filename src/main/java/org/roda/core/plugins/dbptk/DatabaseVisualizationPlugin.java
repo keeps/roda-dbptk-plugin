@@ -73,28 +73,35 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
     pluginParameters.put(PluginConstants.PARAMETER_SOLR_HOSTNAME, new PluginParameter(
       PluginConstants.PARAMETER_SOLR_HOSTNAME, "Solr hostname", PluginParameter.PluginParameterType.STRING,
       PluginConstants.getDefaultSolrHostname(), false, false, "The address at which DBVTK Solr can be reached."));
+
     pluginParameters.put(PluginConstants.PARAMETER_SOLR_PORT, new PluginParameter(PluginConstants.PARAMETER_SOLR_PORT,
       "Solr port", PluginParameter.PluginParameterType.STRING, PluginConstants.getDefaultSolrPort(), false, false,
       "The port at which DBVTK Solr can be reached."));
+
     pluginParameters.put(PluginConstants.PARAMETER_ZOOKEEPER_HOSTNAME, new PluginParameter(
       PluginConstants.PARAMETER_ZOOKEEPER_HOSTNAME, "Zookeeper hostname", PluginParameter.PluginParameterType.STRING,
       PluginConstants.getDefaultZookeeperHostname(), false, false,
       "The address at which DBVTK Zookeeper can be reached."));
+
     pluginParameters.put(PluginConstants.PARAMETER_ZOOKEEPER_PORT, new PluginParameter(
       PluginConstants.PARAMETER_ZOOKEEPER_PORT, "Zookeeper port", PluginParameter.PluginParameterType.STRING,
       PluginConstants.getDefaultZookeeperPort(), false, false, "The port at which DBVTK Zookeeper can be reached."));
+
     pluginParameters.put(PluginConstants.PARAMETER_VISUALIZATION_OPEN_HOSTNAME, new PluginParameter(
       PluginConstants.PARAMETER_VISUALIZATION_OPEN_HOSTNAME, "DBVTK open hostname",
       PluginParameter.PluginParameterType.STRING, PluginConstants.getDefaultVisualizationOpenHostname(), false, false,
       "The address at which DBVTK web interface can be reached to access a database."));
+
     pluginParameters.put(PluginConstants.PARAMETER_VISUALIZATION_OPEN_PORT, new PluginParameter(
       PluginConstants.PARAMETER_VISUALIZATION_OPEN_PORT, "DBVTK open port", PluginParameter.PluginParameterType.STRING,
       PluginConstants.getDefaultVisualizationOpenPort(), false, false,
       "The port at which DBVTK web interface can be reached to access a database."));
+
     pluginParameters.put(PluginConstants.PARAMETER_VISUALIZATION_DELETE_HOSTNAME, new PluginParameter(
       PluginConstants.PARAMETER_VISUALIZATION_DELETE_HOSTNAME, "DBVTK delete hostname",
       PluginParameter.PluginParameterType.STRING, PluginConstants.getDefaultVisualizationDeleteHostname(), false,
       false, "The address at which DBVTK web interface can be reached to delete a database."));
+
     pluginParameters.put(PluginConstants.PARAMETER_VISUALIZATION_DELETE_PORT, new PluginParameter(
       PluginConstants.PARAMETER_VISUALIZATION_DELETE_PORT, "DBVTK delete port",
       PluginParameter.PluginParameterType.STRING, PluginConstants.getDefaultVisualizationDeletePort(), false, false,
@@ -464,29 +471,24 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
 
   @Override
   public List<PluginParameter> getParameters() {
-    ArrayList<PluginParameter> parameters = new ArrayList<>();
-    parameters.add(pluginParameters.get(PluginConstants.PARAMETER_SOLR_HOSTNAME));
-    parameters.add(pluginParameters.get(PluginConstants.PARAMETER_SOLR_PORT));
-    parameters.add(pluginParameters.get(PluginConstants.PARAMETER_ZOOKEEPER_HOSTNAME));
-    parameters.add(pluginParameters.get(PluginConstants.PARAMETER_ZOOKEEPER_PORT));
-    parameters.add(pluginParameters.get(PluginConstants.PARAMETER_VISUALIZATION_OPEN_HOSTNAME));
-    parameters.add(pluginParameters.get(PluginConstants.PARAMETER_VISUALIZATION_OPEN_PORT));
-    parameters.add(pluginParameters.get(PluginConstants.PARAMETER_VISUALIZATION_DELETE_HOSTNAME));
-    parameters.add(pluginParameters.get(PluginConstants.PARAMETER_VISUALIZATION_DELETE_PORT));
-    return parameters;
+    return new ArrayList<>();
   }
 
   @Override
   public void setParameterValues(Map<String, String> parameters) throws InvalidParameterException {
     super.setParameterValues(parameters);
-    solrHostname = parameters.get(PluginConstants.PARAMETER_SOLR_HOSTNAME);
-    solrPort = parameters.get(PluginConstants.PARAMETER_SOLR_PORT);
-    zookeeperHostname = parameters.get(PluginConstants.PARAMETER_ZOOKEEPER_HOSTNAME);
-    zookeeperPort = parameters.get(PluginConstants.PARAMETER_ZOOKEEPER_PORT);
-    visualizationOpenHostname = parameters.get(PluginConstants.PARAMETER_VISUALIZATION_OPEN_HOSTNAME);
-    visualizationOpenPort = parameters.get(PluginConstants.PARAMETER_VISUALIZATION_OPEN_PORT);
-    visualizationDeleteHostname = parameters.get(PluginConstants.PARAMETER_VISUALIZATION_DELETE_HOSTNAME);
-    visualizationDeletePort = parameters.get(PluginConstants.PARAMETER_VISUALIZATION_DELETE_PORT);
+
+    solrHostname = pluginParameters.get(PluginConstants.PARAMETER_SOLR_HOSTNAME).getDefaultValue();
+    solrPort = pluginParameters.get(PluginConstants.PARAMETER_SOLR_PORT).getDefaultValue();
+    zookeeperHostname = pluginParameters.get(PluginConstants.PARAMETER_ZOOKEEPER_HOSTNAME).getDefaultValue();
+    zookeeperPort = pluginParameters.get(PluginConstants.PARAMETER_ZOOKEEPER_PORT).getDefaultValue();
+    visualizationOpenHostname = pluginParameters.get(PluginConstants.PARAMETER_VISUALIZATION_OPEN_HOSTNAME)
+      .getDefaultValue();
+    visualizationOpenPort = pluginParameters.get(PluginConstants.PARAMETER_VISUALIZATION_OPEN_PORT).getDefaultValue();
+    visualizationDeleteHostname = pluginParameters.get(PluginConstants.PARAMETER_VISUALIZATION_DELETE_HOSTNAME)
+      .getDefaultValue();
+    visualizationDeletePort = pluginParameters.get(PluginConstants.PARAMETER_VISUALIZATION_DELETE_PORT)
+      .getDefaultValue();
   }
 
   private Map<String, String> getDipProperties(DIP dip) {

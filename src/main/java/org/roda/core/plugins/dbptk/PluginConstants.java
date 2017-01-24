@@ -19,9 +19,9 @@ public class PluginConstants {
   public static final String DIP_TYPE = "dbptk";
 
   private static final String DEFAULT_SOLR_HOSTNAME = "127.0.0.1";
-  private static final String DEFAULT_SOLR_PORT = "68983";
+  private static final String DEFAULT_SOLR_PORT = "8983";
   private static final String DEFAULT_ZOOKEEPER_HOSTNAME = "127.0.0.1";
-  private static final String DEFAULT_ZOOKEEPER_PORT = "69983";
+  private static final String DEFAULT_ZOOKEEPER_PORT = "9983";
   private static final String DEFAULT_VISUALIZATION_OPEN_HOSTNAME = "127.0.0.1";
   private static final String DEFAULT_VISUALIZATION_OPEN_PORT = "9999";
   private static final String DEFAULT_VISUALIZATION_DELETE_HOSTNAME = "127.0.0.1";
