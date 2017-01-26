@@ -129,6 +129,12 @@
 				</exclusion>
 			</exclusions>
 		</dependency>
+		<dependency>
+			<groupId>org.roda-project</groupId>
+			<artifactId>roda-common-data</artifactId>
+			<version>${roda.version}</version>
+			<scope>provided</scope>
+		</dependency>
 		<!-- plugin-specific dependencies go here -->
 		<dependency>
 			<groupId>com.databasepreservation</groupId>
