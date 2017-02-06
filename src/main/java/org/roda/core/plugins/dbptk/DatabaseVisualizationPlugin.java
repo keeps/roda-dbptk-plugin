@@ -8,8 +8,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.naming.OperationNotSupportedException;
-
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.roda.core.common.IdUtils;
@@ -51,10 +49,10 @@ import org.roda.core.storage.StorageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.databasepreservation.model.exception.InvalidDataException;
 import com.databasepreservation.model.exception.LicenseNotAcceptedException;
 import com.databasepreservation.model.exception.ModuleException;
 import com.databasepreservation.model.exception.UnknownTypeException;
+import com.databasepreservation.model.exception.UnsupportedModuleException;
 import com.databasepreservation.model.modules.DatabaseExportModule;
 import com.databasepreservation.model.modules.DatabaseImportModule;
 import com.databasepreservation.model.modules.DatabaseModuleFactory;
@@ -513,7 +511,7 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
       Map<Parameter, String> siardParameters = new HashMap<>();
       siardParameters.put(siardImportFactory.getAllParameters().get("file"), siardPath.toAbsolutePath().toString());
       siardImportModule = siardImportFactory.buildImportModule(siardParameters);
-    } catch (OperationNotSupportedException | LicenseNotAcceptedException e) {
+    } catch (UnsupportedModuleException | LicenseNotAcceptedException e) {
       LOGGER.error("Could not initialize SIARD import module", e);
     }
 
@@ -529,7 +527,7 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
       solrParameters.put(solrExportFactory.getAllParameters().get("zookeeper-port"), zookeeperPort);
       solrParameters.put(solrExportFactory.getAllParameters().get("database-id"), dip.getId());
       solrExportModule = solrExportFactory.buildExportModule(solrParameters);
-    } catch (OperationNotSupportedException | LicenseNotAcceptedException e) {
+    } catch (UnsupportedModuleException | LicenseNotAcceptedException e) {
       LOGGER.error("Could not initialize Solr export module", e);
     }
 
@@ -538,7 +536,7 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
       try {
         siardImportModule.getDatabase(solrExportModule);
         conversionCompleted = true;
-      } catch (ModuleException | UnknownTypeException | InvalidDataException e) {
+      } catch (ModuleException | UnknownTypeException e) {
         LOGGER.error("Could not convert the database to the Solr instance.", e);
       }
       long duration = System.currentTimeMillis() - startTime;

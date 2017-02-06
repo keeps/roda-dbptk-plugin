@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<name>roda-plugin-dbptk</name>
 	<groupId>com.databasepreservation</groupId>
-	<version>0.1.1</version>
+	<version>0.1.2</version>
 	<artifactId>roda-plugin-dbptk</artifactId>
 	<packaging>jar</packaging>
 
@@ -21,7 +21,7 @@
 		<build.date>${maven.build.timestamp}</build.date>
 		<java_version>1.8</java_version>
 		<testng.groups>all</testng.groups>
-		<dbptk.version>2.0.0-beta7</dbptk.version>
+		<dbptk.version>2.0.0-beta7.2</dbptk.version>
 		<roda.version>2.0.0-alpha20.3</roda.version>
 	</properties>
 
