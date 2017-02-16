@@ -68,44 +68,42 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
    */
   private static Map<String, PluginParameter> pluginParameters = new HashMap<>();
   static {
-    pluginParameters.put(PluginConstants.PARAMETER_SOLR_HOSTNAME,
-      new PluginParameter(PluginConstants.PARAMETER_SOLR_HOSTNAME, "Solr hostname",
-        PluginParameter.PluginParameterType.STRING, PluginConstants.getDefaultSolrHostname(), false, false,
-        "The address at which DBVTK Solr can be reached."));
+    pluginParameters.put(PluginConstants.PARAMETER_SOLR_HOSTNAME, new PluginParameter(
+      PluginConstants.PARAMETER_SOLR_HOSTNAME, "Solr hostname", PluginParameter.PluginParameterType.STRING,
+      PluginConstants.getDefaultSolrHostname(), false, false, "The address at which DBVTK Solr can be reached."));
 
-    pluginParameters.put(PluginConstants.PARAMETER_SOLR_PORT,
-      new PluginParameter(PluginConstants.PARAMETER_SOLR_PORT, "Solr port", PluginParameter.PluginParameterType.STRING,
-        PluginConstants.getDefaultSolrPort(), false, false, "The port at which DBVTK Solr can be reached."));
+    pluginParameters.put(PluginConstants.PARAMETER_SOLR_PORT, new PluginParameter(PluginConstants.PARAMETER_SOLR_PORT,
+      "Solr port", PluginParameter.PluginParameterType.STRING, PluginConstants.getDefaultSolrPort(), false, false,
+      "The port at which DBVTK Solr can be reached."));
 
-    pluginParameters.put(PluginConstants.PARAMETER_ZOOKEEPER_HOSTNAME,
-      new PluginParameter(PluginConstants.PARAMETER_ZOOKEEPER_HOSTNAME, "Zookeeper hostname",
-        PluginParameter.PluginParameterType.STRING, PluginConstants.getDefaultZookeeperHostname(), false, false,
-        "The address at which DBVTK Zookeeper can be reached."));
+    pluginParameters.put(PluginConstants.PARAMETER_ZOOKEEPER_HOSTNAME, new PluginParameter(
+      PluginConstants.PARAMETER_ZOOKEEPER_HOSTNAME, "Zookeeper hostname", PluginParameter.PluginParameterType.STRING,
+      PluginConstants.getDefaultZookeeperHostname(), false, false,
+      "The address at which DBVTK Zookeeper can be reached."));
 
-    pluginParameters.put(PluginConstants.PARAMETER_ZOOKEEPER_PORT,
-      new PluginParameter(PluginConstants.PARAMETER_ZOOKEEPER_PORT, "Zookeeper port",
-        PluginParameter.PluginParameterType.STRING, PluginConstants.getDefaultZookeeperPort(), false, false,
-        "The port at which DBVTK Zookeeper can be reached."));
+    pluginParameters.put(PluginConstants.PARAMETER_ZOOKEEPER_PORT, new PluginParameter(
+      PluginConstants.PARAMETER_ZOOKEEPER_PORT, "Zookeeper port", PluginParameter.PluginParameterType.STRING,
+      PluginConstants.getDefaultZookeeperPort(), false, false, "The port at which DBVTK Zookeeper can be reached."));
 
-    pluginParameters.put(PluginConstants.PARAMETER_VISUALIZATION_OPEN_HOSTNAME,
-      new PluginParameter(PluginConstants.PARAMETER_VISUALIZATION_OPEN_HOSTNAME, "DBVTK open hostname",
-        PluginParameter.PluginParameterType.STRING, PluginConstants.getDefaultVisualizationOpenHostname(), false, false,
-        "The address at which DBVTK web interface can be reached to access a database."));
+    pluginParameters.put(PluginConstants.PARAMETER_VISUALIZATION_OPEN_HOSTNAME, new PluginParameter(
+      PluginConstants.PARAMETER_VISUALIZATION_OPEN_HOSTNAME, "DBVTK open hostname",
+      PluginParameter.PluginParameterType.STRING, PluginConstants.getDefaultVisualizationOpenHostname(), false, false,
+      "The address at which DBVTK web interface can be reached to access a database."));
 
-    pluginParameters.put(PluginConstants.PARAMETER_VISUALIZATION_OPEN_PORT,
-      new PluginParameter(PluginConstants.PARAMETER_VISUALIZATION_OPEN_PORT, "DBVTK open port",
-        PluginParameter.PluginParameterType.STRING, PluginConstants.getDefaultVisualizationOpenPort(), false, false,
-        "The port at which DBVTK web interface can be reached to access a database."));
+    pluginParameters.put(PluginConstants.PARAMETER_VISUALIZATION_OPEN_PORT, new PluginParameter(
+      PluginConstants.PARAMETER_VISUALIZATION_OPEN_PORT, "DBVTK open port", PluginParameter.PluginParameterType.STRING,
+      PluginConstants.getDefaultVisualizationOpenPort(), false, false,
+      "The port at which DBVTK web interface can be reached to access a database."));
 
-    pluginParameters.put(PluginConstants.PARAMETER_VISUALIZATION_DELETE_HOSTNAME,
-      new PluginParameter(PluginConstants.PARAMETER_VISUALIZATION_DELETE_HOSTNAME, "DBVTK delete hostname",
-        PluginParameter.PluginParameterType.STRING, PluginConstants.getDefaultVisualizationDeleteHostname(), false,
-        false, "The address at which DBVTK web interface can be reached to delete a database."));
+    pluginParameters.put(PluginConstants.PARAMETER_VISUALIZATION_DELETE_HOSTNAME, new PluginParameter(
+      PluginConstants.PARAMETER_VISUALIZATION_DELETE_HOSTNAME, "DBVTK delete hostname",
+      PluginParameter.PluginParameterType.STRING, PluginConstants.getDefaultVisualizationDeleteHostname(), false,
+      false, "The address at which DBVTK web interface can be reached to delete a database."));
 
-    pluginParameters.put(PluginConstants.PARAMETER_VISUALIZATION_DELETE_PORT,
-      new PluginParameter(PluginConstants.PARAMETER_VISUALIZATION_DELETE_PORT, "DBVTK delete port",
-        PluginParameter.PluginParameterType.STRING, PluginConstants.getDefaultVisualizationDeletePort(), false, false,
-        "The port at which DBVTK web interface can be reached to delete a database."));
+    pluginParameters.put(PluginConstants.PARAMETER_VISUALIZATION_DELETE_PORT, new PluginParameter(
+      PluginConstants.PARAMETER_VISUALIZATION_DELETE_PORT, "DBVTK delete port",
+      PluginParameter.PluginParameterType.STRING, PluginConstants.getDefaultVisualizationDeletePort(), false, false,
+      "The port at which DBVTK web interface can be reached to delete a database."));
   }
 
   private String solrHostname;
@@ -254,8 +252,7 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
    * @throws PluginException
    */
   @Override
-  public Report beforeAllExecute(IndexService index, ModelService model, StorageService storage)
-    throws PluginException {
+  public Report beforeAllExecute(IndexService index, ModelService model, StorageService storage) throws PluginException {
     LOGGER.info("DBVTK-BEFORE-ALL");
     return new Report();
   }
@@ -278,8 +275,9 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
 
           IndexedFile ifile = index.retrieve(IndexedFile.class, IdUtils.getFileId(file), Collections.emptyList());
           String fileFormat = ifile.getId().substring(ifile.getId().lastIndexOf('.') + 1, ifile.getId().length());
-          String fileInfoPath = StringUtils.join(Arrays.asList(file.getAipId(), file.getRepresentationId(),
-            StringUtils.join(file.getPath(), '/'), file.getId()), '/');
+          String fileInfoPath = StringUtils.join(
+            Arrays.asList(file.getAipId(), file.getRepresentationId(), StringUtils.join(file.getPath(), '/'),
+              file.getId()), '/');
           pluginResultState = convertToViewer(model, storage, file, reportItem, pluginResultState, fileFormat,
             fileInfoPath, aip.getPermissions());
         }
@@ -338,8 +336,8 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
       IOUtils.closeQuietly(directAccess);
 
       if (!pluginResultState.equals(PluginState.SUCCESS)) {
-        reportItem.addPluginDetails(
-          " Loading into database visualization toolkit failed on " + fileInfoPath.replace("//", "/") + ".");
+        reportItem.addPluginDetails(" Loading into database visualization toolkit failed on "
+          + fileInfoPath.replace("//", "/") + ".");
       }
     } else {
       LOGGER.debug("Ignoring non-siard file: {}", fileInfoPath.replace("//", "/"));
@@ -419,9 +417,8 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
           if (!file.isDirectory()) {
             IndexedFile ifile = index.retrieve(IndexedFile.class, IdUtils.getFileId(file), Collections.emptyList());
             String fileFormat = ifile.getId().substring(ifile.getId().lastIndexOf('.') + 1, ifile.getId().length());
-            String fileInfoPath = StringUtils.join(
-              Arrays.asList(aip.getId(), representation.getId(), StringUtils.join(file.getPath(), '/'), file.getId()),
-              '/');
+            String fileInfoPath = ModelUtils.getFileStoragePath(aip.getId(), representation.getId(), file.getPath(),
+              file.getId()).toString();
 
             convertToViewer(model, storage, file, reportItem, pluginResultState, fileFormat, fileInfoPath,
               aip.getPermissions());
