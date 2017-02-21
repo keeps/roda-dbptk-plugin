@@ -524,7 +524,6 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
       DatabaseExportModule solrExportModule = solrExportFactory.buildExportModule(solrParameters);
       solrExportModule.setOnceReporter(reporter);
 
-    if (siardImportModule != null && solrExportModule != null) {
       long startTime = System.currentTimeMillis();
       try {
         siardImportModule.getDatabase(solrExportModule);
@@ -534,8 +533,8 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
       }
       long duration = System.currentTimeMillis() - startTime;
       LOGGER.info("Conversion time " + (duration / 60000) + "m " + (duration % 60000 / 1000) + "s");
-    } catch (LicenseNotAcceptedException | UnsupportedModuleException e) {
-      LOGGER.error("Could not initialize SIARD import module", e);
+    } catch (ModuleException e) {
+      LOGGER.error("Could not initialize modules", e);
     }
 
     return conversionCompleted;
