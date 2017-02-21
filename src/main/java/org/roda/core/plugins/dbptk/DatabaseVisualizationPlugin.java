@@ -49,6 +49,7 @@ import org.roda.core.storage.StorageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.databasepreservation.model.Reporter;
 import com.databasepreservation.model.exception.LicenseNotAcceptedException;
 import com.databasepreservation.model.exception.ModuleException;
 import com.databasepreservation.model.exception.UnknownTypeException;
@@ -201,7 +202,7 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
    */
   @Override
   public List<String> getCategories() {
-    return Collections.emptyList();
+    return Arrays.asList(RodaConstants.PLUGIN_CATEGORY_DISSEMINATION);
   }
 
   /**
@@ -271,9 +272,9 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
         LOGGER.debug("Processing file: {}", file);
         if (!file.isDirectory()) {
 
-          IndexedAIP aip = index.retrieve(IndexedAIP.class, file.getAipId());
+          IndexedAIP aip = index.retrieve(IndexedAIP.class, file.getAipId(), Collections.emptyList());
 
-          IndexedFile ifile = index.retrieve(IndexedFile.class, IdUtils.getFileId(file));
+          IndexedFile ifile = index.retrieve(IndexedFile.class, IdUtils.getFileId(file), Collections.emptyList());
           String fileFormat = ifile.getId().substring(ifile.getId().lastIndexOf('.') + 1, ifile.getId().length());
           String fileInfoPath = StringUtils.join(
             Arrays.asList(file.getAipId(), file.getRepresentationId(), StringUtils.join(file.getPath(), '/'),
@@ -415,11 +416,10 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
           File file = oFile.get();
           LOGGER.debug("Processing file: {}", file);
           if (!file.isDirectory()) {
-            IndexedFile ifile = index.retrieve(IndexedFile.class, IdUtils.getFileId(file));
+            IndexedFile ifile = index.retrieve(IndexedFile.class, IdUtils.getFileId(file), Collections.emptyList());
             String fileFormat = ifile.getId().substring(ifile.getId().lastIndexOf('.') + 1, ifile.getId().length());
-            String fileInfoPath = StringUtils.join(
-              Arrays.asList(aip.getId(), representation.getId(), StringUtils.join(file.getPath(), '/'), file.getId()),
-              '/');
+            String fileInfoPath = ModelUtils.getFileStoragePath(aip.getId(), representation.getId(), file.getPath(),
+              file.getId()).toString();
 
             convertToViewer(model, storage, file, reportItem, pluginResultState, fileFormat, fileInfoPath,
               aip.getPermissions());
@@ -503,35 +503,27 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
     boolean conversionCompleted = false;
     LOGGER.info("starting to convert database " + siardPath.toAbsolutePath().toString());
 
-    // build the SIARD import module
-    DatabaseImportModule siardImportModule = null;
+    // build the SIARD import module, Solr export module, and start the
+    // conversion
     try {
-      // create
-      DatabaseModuleFactory siardImportFactory = new SIARD2ModuleFactory();
+      Reporter reporter = new Reporter(PluginHelper.getJobWorkingDirectory(this).toAbsolutePath().toString());
+
+      DatabaseModuleFactory siardImportFactory = new SIARD2ModuleFactory(reporter);
       Map<Parameter, String> siardParameters = new HashMap<>();
       siardParameters.put(siardImportFactory.getAllParameters().get("file"), siardPath.toAbsolutePath().toString());
-      siardImportModule = siardImportFactory.buildImportModule(siardParameters);
-    } catch (UnsupportedModuleException | LicenseNotAcceptedException e) {
-      LOGGER.error("Could not initialize SIARD import module", e);
-    }
+      DatabaseImportModule siardImportModule = siardImportFactory.buildImportModule(siardParameters);
+      siardImportModule.setOnceReporter(reporter);
 
-    // build the Solr export module
-    DatabaseExportModule solrExportModule = null;
-    try {
-      // create
-      DatabaseModuleFactory solrExportFactory = new SolrModuleFactory();
+      DatabaseModuleFactory solrExportFactory = new SolrModuleFactory(reporter);
       Map<Parameter, String> solrParameters = new HashMap<>();
       solrParameters.put(solrExportFactory.getAllParameters().get("hostname"), solrHostname);
       solrParameters.put(solrExportFactory.getAllParameters().get("port"), solrPort);
       solrParameters.put(solrExportFactory.getAllParameters().get("zookeeper-hostname"), zookeeperHostname);
       solrParameters.put(solrExportFactory.getAllParameters().get("zookeeper-port"), zookeeperPort);
       solrParameters.put(solrExportFactory.getAllParameters().get("database-id"), dip.getId());
-      solrExportModule = solrExportFactory.buildExportModule(solrParameters);
-    } catch (UnsupportedModuleException | LicenseNotAcceptedException e) {
-      LOGGER.error("Could not initialize Solr export module", e);
-    }
+      DatabaseExportModule solrExportModule = solrExportFactory.buildExportModule(solrParameters);
+      solrExportModule.setOnceReporter(reporter);
 
-    if (siardImportModule != null && solrExportModule != null) {
       long startTime = System.currentTimeMillis();
       try {
         siardImportModule.getDatabase(solrExportModule);
@@ -541,6 +533,8 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
       }
       long duration = System.currentTimeMillis() - startTime;
       LOGGER.info("Conversion time " + (duration / 60000) + "m " + (duration % 60000 / 1000) + "s");
+    } catch (ModuleException e) {
+      LOGGER.error("Could not initialize modules", e);
     }
 
     return conversionCompleted;
