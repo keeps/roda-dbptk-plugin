@@ -49,6 +49,7 @@ import org.roda.core.storage.StorageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.databasepreservation.model.Reporter;
 import com.databasepreservation.model.exception.LicenseNotAcceptedException;
 import com.databasepreservation.model.exception.ModuleException;
 import com.databasepreservation.model.exception.UnknownTypeException;
@@ -502,33 +503,26 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
     boolean conversionCompleted = false;
     LOGGER.info("starting to convert database " + siardPath.toAbsolutePath().toString());
 
-    // build the SIARD import module
-    DatabaseImportModule siardImportModule = null;
+    // build the SIARD import module, Solr export module, and start the
+    // conversion
     try {
-      // create
-      DatabaseModuleFactory siardImportFactory = new SIARD2ModuleFactory();
+      Reporter reporter = new Reporter(PluginHelper.getJobWorkingDirectory(this).toAbsolutePath().toString());
+
+      DatabaseModuleFactory siardImportFactory = new SIARD2ModuleFactory(reporter);
       Map<Parameter, String> siardParameters = new HashMap<>();
       siardParameters.put(siardImportFactory.getAllParameters().get("file"), siardPath.toAbsolutePath().toString());
-      siardImportModule = siardImportFactory.buildImportModule(siardParameters);
-    } catch (UnsupportedModuleException | LicenseNotAcceptedException e) {
-      LOGGER.error("Could not initialize SIARD import module", e);
-    }
+      DatabaseImportModule siardImportModule = siardImportFactory.buildImportModule(siardParameters);
+      siardImportModule.setOnceReporter(reporter);
 
-    // build the Solr export module
-    DatabaseExportModule solrExportModule = null;
-    try {
-      // create
-      DatabaseModuleFactory solrExportFactory = new SolrModuleFactory();
+      DatabaseModuleFactory solrExportFactory = new SolrModuleFactory(reporter);
       Map<Parameter, String> solrParameters = new HashMap<>();
       solrParameters.put(solrExportFactory.getAllParameters().get("hostname"), solrHostname);
       solrParameters.put(solrExportFactory.getAllParameters().get("port"), solrPort);
       solrParameters.put(solrExportFactory.getAllParameters().get("zookeeper-hostname"), zookeeperHostname);
       solrParameters.put(solrExportFactory.getAllParameters().get("zookeeper-port"), zookeeperPort);
       solrParameters.put(solrExportFactory.getAllParameters().get("database-id"), dip.getId());
-      solrExportModule = solrExportFactory.buildExportModule(solrParameters);
-    } catch (UnsupportedModuleException | LicenseNotAcceptedException e) {
-      LOGGER.error("Could not initialize Solr export module", e);
-    }
+      DatabaseExportModule solrExportModule = solrExportFactory.buildExportModule(solrParameters);
+      solrExportModule.setOnceReporter(reporter);
 
     if (siardImportModule != null && solrExportModule != null) {
       long startTime = System.currentTimeMillis();
@@ -540,6 +534,8 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
       }
       long duration = System.currentTimeMillis() - startTime;
       LOGGER.info("Conversion time " + (duration / 60000) + "m " + (duration % 60000 / 1000) + "s");
+    } catch (LicenseNotAcceptedException | UnsupportedModuleException e) {
+      LOGGER.error("Could not initialize SIARD import module", e);
     }
 
     return conversionCompleted;
