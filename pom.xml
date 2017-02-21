@@ -22,7 +22,7 @@
 		<java_version>1.8</java_version>
 		<testng.groups>all</testng.groups>
 		<dbptk.version>2.0.0-beta7.2</dbptk.version>
-		<roda.version>2.0.0-beta2</roda.version>
+		<roda.version>2.0.0-beta3</roda.version>
 	</properties>
 
 	<build>
