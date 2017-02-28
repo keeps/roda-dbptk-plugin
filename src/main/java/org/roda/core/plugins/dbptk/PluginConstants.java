@@ -16,6 +16,8 @@ public class PluginConstants {
   public static final String PARAMETER_VISUALIZATION_DELETE_HOSTNAME = "core.plugins.dbptk.visualization.deleteHostname";
   public static final String PARAMETER_VISUALIZATION_DELETE_PORT = "core.plugins.dbptk.visualization.deletePort";
 
+  public static final String PARAMETER_SIARD_EXTENSIONS = "core.plugins.dbptk.siard.extensions";
+
   public static final String DIP_TYPE = "dbptk";
 
   private static final String DEFAULT_SOLR_HOSTNAME = "127.0.0.1";
@@ -26,6 +28,7 @@ public class PluginConstants {
   private static final String DEFAULT_VISUALIZATION_OPEN_PORT = "9999";
   private static final String DEFAULT_VISUALIZATION_DELETE_HOSTNAME = "127.0.0.1";
   private static final String DEFAULT_VISUALIZATION_DELETE_PORT = "9999";
+  private static final String DEFAULT_SIARD_EXTENSIONS = "*.siard,*.siard2";
 
   public static String getDefaultSolrHostname() {
     String hostname = RodaCoreFactory.getRodaConfigurationAsString(PARAMETER_SOLR_HOSTNAME.split("\\."));
@@ -66,5 +69,10 @@ public class PluginConstants {
   public static String getDefaultVisualizationDeletePort() {
     String port = RodaCoreFactory.getRodaConfigurationAsString(PARAMETER_VISUALIZATION_DELETE_PORT.split("\\."));
     return StringUtils.isNotBlank(port) ? port : DEFAULT_VISUALIZATION_DELETE_PORT;
+  }
+
+  public static String getDefaultSiardExtensions() {
+    String patterns = RodaCoreFactory.getRodaConfigurationAsString(PARAMETER_SIARD_EXTENSIONS.split("\\."));
+    return StringUtils.isNotBlank(patterns) ? patterns : DEFAULT_SIARD_EXTENSIONS;
   }
 }

@@ -50,10 +50,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.databasepreservation.model.Reporter;
-import com.databasepreservation.model.exception.LicenseNotAcceptedException;
 import com.databasepreservation.model.exception.ModuleException;
 import com.databasepreservation.model.exception.UnknownTypeException;
-import com.databasepreservation.model.exception.UnsupportedModuleException;
 import com.databasepreservation.model.modules.DatabaseExportModule;
 import com.databasepreservation.model.modules.DatabaseImportModule;
 import com.databasepreservation.model.modules.DatabaseModuleFactory;
@@ -105,6 +103,11 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
       PluginConstants.PARAMETER_VISUALIZATION_DELETE_PORT, "DBVTK delete port",
       PluginParameter.PluginParameterType.STRING, PluginConstants.getDefaultVisualizationDeletePort(), false, false,
       "The port at which DBVTK web interface can be reached to delete a database."));
+
+    pluginParameters.put(PluginConstants.PARAMETER_SIARD_EXTENSIONS, new PluginParameter(
+      PluginConstants.PARAMETER_SIARD_EXTENSIONS, "File extensions to process",
+      PluginParameter.PluginParameterType.STRING, PluginConstants.getDefaultSiardExtensions(), false, false,
+      "The comma-separated list of file extensions that should be considered SIARDs by this task."));
   }
 
   private String solrHostname;
