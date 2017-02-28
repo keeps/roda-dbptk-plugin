@@ -3,13 +3,13 @@ package org.roda.core.plugins.dbptk;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.roda.core.common.IdUtils;
 import org.roda.core.common.iterables.CloseableIterable;
 import org.roda.core.data.common.RodaConstants;
@@ -22,12 +22,9 @@ import org.roda.core.data.exceptions.RequestNotValidException;
 import org.roda.core.data.v2.IsRODAObject;
 import org.roda.core.data.v2.common.OptionalWithCause;
 import org.roda.core.data.v2.ip.AIP;
-import org.roda.core.data.v2.ip.AIPState;
 import org.roda.core.data.v2.ip.DIP;
 import org.roda.core.data.v2.ip.File;
 import org.roda.core.data.v2.ip.FileLink;
-import org.roda.core.data.v2.ip.IndexedAIP;
-import org.roda.core.data.v2.ip.IndexedFile;
 import org.roda.core.data.v2.ip.Permissions;
 import org.roda.core.data.v2.ip.Representation;
 import org.roda.core.data.v2.ip.StoragePath;
@@ -36,6 +33,8 @@ import org.roda.core.data.v2.jobs.PluginParameter;
 import org.roda.core.data.v2.jobs.PluginType;
 import org.roda.core.data.v2.jobs.Report;
 import org.roda.core.data.v2.jobs.Report.PluginState;
+import org.roda.core.data.v2.validation.ValidationIssue;
+import org.roda.core.data.v2.validation.ValidationReport;
 import org.roda.core.index.IndexService;
 import org.roda.core.model.ModelService;
 import org.roda.core.model.utils.ModelUtils;
@@ -108,6 +107,11 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
       PluginConstants.PARAMETER_SIARD_EXTENSIONS, "File extensions to process",
       PluginParameter.PluginParameterType.STRING, PluginConstants.getDefaultSiardExtensions(), true, false,
       "The comma-separated list of file extensions that should be considered SIARDs by this task."));
+
+    pluginParameters.put(PluginConstants.PARAMETER_IGNORE_NON_SIARD, new PluginParameter(
+      PluginConstants.PARAMETER_IGNORE_NON_SIARD, "Ignore non SIARD files",
+      PluginParameter.PluginParameterType.BOOLEAN, PluginConstants.getDefaultSiardIgnoreNonSiard(), false, false,
+      "Ignore files that are not identified as SIARD."));
   }
 
   private String solrHostname;
@@ -118,6 +122,7 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
   private String visualizationOpenPort;
   private String visualizationDeleteHostname;
   private String visualizationDeletePort;
+  private boolean ignoreFiles = Boolean.valueOf(PluginConstants.getDefaultSiardIgnoreNonSiard());
   private List<String> siardExtensions;
 
   @Override
@@ -142,7 +147,11 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
    */
   @Override
   public String getDescription() {
-    return "Loads SIARD2 databases into a Database Visualization Toolkit instance.";
+    return "Uses the Database Preservation Toolkit to load SIARD 2 files into a Database Visualization Toolkit "
+      + "instance. This task assumes that the necessary configuration options have been set "
+      + "(in “roda-core.properties”), to allow the plugin to communicate with the Database Visualization Toolkit "
+      + "instance. The loaded databases are non-volatile, but deleting the SIARD file DIP will also remove the corresponding "
+      + "database from the Database Visualization Toolkit.";
   }
 
   /**
@@ -265,43 +274,44 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
   protected Report executeOnFile(IndexService index, ModelService model, StorageService storage, Report report,
     SimpleJobPluginInfo jobPluginInfo, List<File> list, Job job) throws PluginException {
     for (File file : list) {
-      Report reportItem = PluginHelper.initPluginReportItem(this, IdUtils.getFileId(file), File.class,
-        AIPState.INGEST_PROCESSING);
+      ValidationReport validationReport = new ValidationReport();
+      Report reportItem = PluginHelper.initPluginReportItem(this, IdUtils.getFileId(file), File.class).setDateCreated(
+        new Date());
       PluginState reportState = PluginState.SUCCESS;
 
+      String fileInfoPath = null;
       try {
         PluginHelper.updatePartialJobReport(this, model, index, reportItem, false, job);
-        PluginState pluginResultState = PluginState.SUCCESS;
-
         LOGGER.debug("Processing file: {}", file);
         if (!file.isDirectory()) {
-
-          IndexedAIP aip = index.retrieve(IndexedAIP.class, file.getAipId(), Collections.emptyList());
-
-          IndexedFile ifile = index.retrieve(IndexedFile.class, IdUtils.getFileId(file), Collections.emptyList());
-          String fileFormat = ifile.getId().substring(ifile.getId().lastIndexOf('.') + 1, ifile.getId().length());
-          String fileInfoPath = StringUtils.join(
-            Arrays.asList(file.getAipId(), file.getRepresentationId(), StringUtils.join(file.getPath(), '/'),
-              file.getId()), '/');
-          pluginResultState = convertToViewer(model, storage, file, reportItem, pluginResultState, fileFormat,
-            fileInfoPath, aip.getPermissions());
+          AIP aip = model.retrieveAIP(file.getAipId());
+          String fileFormat = file.getId().substring(file.getId().lastIndexOf('.') + 1, file.getId().length());
+          fileInfoPath = ModelUtils.getFileStoragePath(file.getAipId(), file.getRepresentationId(), file.getPath(),
+            file.getId()).toString();
+          PluginState pluginState = convertToViewer(model, storage, file, validationReport, fileFormat, fileInfoPath,
+            aip.getPermissions());
+          if (pluginState.equals(PluginState.FAILURE)) {
+            reportState = PluginState.FAILURE;
+          }
         }
-
-        if (!pluginResultState.equals(PluginState.SUCCESS)) {
-          reportState = PluginState.FAILURE;
-        }
-
         jobPluginInfo.incrementObjectsProcessed(reportState);
 
       } catch (RequestNotValidException | NotFoundException | GenericException | AuthorizationDeniedException
         | IllegalArgumentException e) {
         jobPluginInfo.incrementObjectsProcessedWithFailure();
-        LOGGER.error("Could not run DBPTK successfully", e);
+        addExceptionToValidationReport(validationReport, "Could not run DBPTK successfully", e);
         reportState = PluginState.FAILURE;
         reportItem.setPluginDetails(e.getMessage());
         jobPluginInfo.incrementObjectsProcessedWithFailure();
       } finally {
         reportItem.setPluginState(reportState);
+        if (fileInfoPath != null) {
+          addValidationReportAsHtml(validationReport, reportItem,
+            "Error list for file " + fileInfoPath.replace("//", "/"));
+        } else {
+          addValidationReportAsHtml(validationReport, reportItem, "Error list for file " + file.getId()
+            + " in Representation " + file.getRepresentationId());
+        }
         report.addReport(reportItem);
         PluginHelper.updatePartialJobReport(this, model, index, reportItem, true, job);
       }
@@ -310,9 +320,11 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
     return report;
   }
 
-  private PluginState convertToViewer(ModelService model, StorageService storage, File file, Report reportItem,
-    PluginState pluginResultState, String fileFormat, String fileInfoPath, Permissions permissions)
+  private PluginState convertToViewer(ModelService model, StorageService storage, File file,
+    ValidationReport validationReport, String fileFormat, String fileInfoPath, Permissions permissions)
     throws RequestNotValidException, GenericException, AuthorizationDeniedException, NotFoundException {
+    PluginState pluginResultState = PluginState.SUCCESS;
+
     // FIXME 20161103 bferreira use other means to identify siard2
     if (siardExtensions.contains(fileFormat)) {
       LOGGER.debug("Converting {} to the database viewer", file.getId());
@@ -321,12 +333,11 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
       Path siardPath = directAccess.getPath();
       DIP dip = new DIP();
 
-      boolean conversionCompleted = convert(siardPath, dip);
+      boolean conversionCompleted = convert(siardPath, dip, validationReport);
 
       if (conversionCompleted) {
         dip.setType(PluginConstants.DIP_TYPE);
-        dip.setDescription("Lightweight web viewer for relational databases, specially if preserved "
-          + "in SIARD 2, that uses SOLR as a backend, and allows browsing, search, and export.");
+        dip.setDescription("Lightweight web viewer for relational databases. It allows browsing, search and export.");
         dip.setTitle("Database Visualization Toolkit");
         dip.setIsPermanent(false);
         dip.setPermissions(permissions);
@@ -335,27 +346,32 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
         dip.setProperties(getDipProperties(dip));
         model.createDIP(dip, true);
       } else {
-        pluginResultState = PluginState.PARTIAL_SUCCESS;
+        pluginResultState = PluginState.FAILURE;
       }
 
       IOUtils.closeQuietly(directAccess);
 
       if (!pluginResultState.equals(PluginState.SUCCESS)) {
-        reportItem.addPluginDetails(" Loading into database visualization toolkit failed on "
+        addMessageToValidationReport(validationReport, "Loading into database visualization toolkit failed on "
           + fileInfoPath.replace("//", "/") + ".");
       }
     } else {
-      LOGGER.debug("Ignoring non-siard file: {}", fileInfoPath.replace("//", "/"));
+      if (ignoreFiles) {
+        addMessageToValidationReport(validationReport, "Ignoring non-siard file: " + fileInfoPath.replace("//", "/"));
+      } else {
+        addMessageToValidationReport(validationReport, "Found non-siard file: " + fileInfoPath.replace("//", "/"));
+        pluginResultState = PluginState.FAILURE;
+      }
     }
     return pluginResultState;
   }
 
   protected Report executeOnRepresentation(IndexService index, ModelService model, StorageService storage,
     Report report, SimpleJobPluginInfo jobPluginInfo, List<Representation> list, Job job) throws PluginException {
-
     for (Representation representation : list) {
+      ValidationReport validationReport = new ValidationReport();
       Report reportItem = PluginHelper.initPluginReportItem(this, IdUtils.getRepresentationId(representation),
-        Representation.class, AIPState.INGEST_PROCESSING);
+        Representation.class).setDateCreated(new Date());
       PluginHelper.updatePartialJobReport(this, model, index, reportItem, false, job);
       PluginState reportState = PluginState.SUCCESS;
 
@@ -365,12 +381,13 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
         reportState = internalExecuteOnRepresentation(index, model, storage, aip, reportItem, reportState,
           representation);
       } catch (RequestNotValidException | NotFoundException | GenericException | AuthorizationDeniedException e) {
-        LOGGER.error("Could not retrieve AIP for representation", e);
+        addExceptionToValidationReport(validationReport, "Could not retrieve AIP for representation", e);
         reportState = PluginState.FAILURE;
       }
 
       jobPluginInfo.incrementObjectsProcessed(reportState);
       reportItem.setPluginState(reportState);
+      addValidationReportAsHtml(validationReport, reportItem, "Error list for AIP " + representation.getAipId());
       report.addReport(reportItem);
 
       PluginHelper.updatePartialJobReport(this, model, index, reportItem, true, job);
@@ -381,10 +398,9 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
 
   protected Report executeOnAIP(IndexService index, ModelService model, StorageService storage, Report report,
     SimpleJobPluginInfo jobPluginInfo, List<AIP> list, Job job) throws PluginException {
-
     for (AIP aip : list) {
       LOGGER.debug("Processing AIP {}", aip.getId());
-      Report reportItem = PluginHelper.initPluginReportItem(this, aip.getId(), AIP.class, AIPState.INGEST_PROCESSING);
+      Report reportItem = PluginHelper.initPluginReportItem(this, aip.getId(), AIP.class).setDateCreated(new Date());
       PluginHelper.updatePartialJobReport(this, model, index, reportItem, false, job);
       PluginState reportState = PluginState.SUCCESS;
 
@@ -407,43 +423,46 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
 
   private PluginState internalExecuteOnRepresentation(IndexService index, ModelService model, StorageService storage,
     AIP aip, Report reportItem, PluginState reportState, Representation representation) {
-    PluginState pluginResultState = PluginState.SUCCESS;
+
+    CloseableIterable<OptionalWithCause<File>> allFiles = null;
+    ValidationReport representationValidationReport = new ValidationReport();
     try {
       LOGGER.debug("Processing representation {} of AIP {}", representation.getId(), aip.getId());
 
       boolean recursive = true;
-      CloseableIterable<OptionalWithCause<File>> allFiles = model.listFilesUnder(aip.getId(), representation.getId(),
-        recursive);
+      allFiles = model.listFilesUnder(aip.getId(), representation.getId(), recursive);
 
       for (OptionalWithCause<File> oFile : allFiles) {
         if (oFile.isPresent()) {
           File file = oFile.get();
           LOGGER.debug("Processing file: {}", file);
           if (!file.isDirectory()) {
-            IndexedFile ifile = index.retrieve(IndexedFile.class, IdUtils.getFileId(file), Collections.emptyList());
-            String fileFormat = ifile.getId().substring(ifile.getId().lastIndexOf('.') + 1, ifile.getId().length());
+            String fileFormat = file.getId().substring(file.getId().lastIndexOf('.') + 1, file.getId().length());
             String fileInfoPath = ModelUtils.getFileStoragePath(aip.getId(), representation.getId(), file.getPath(),
               file.getId()).toString();
 
-            convertToViewer(model, storage, file, reportItem, pluginResultState, fileFormat, fileInfoPath,
+            ValidationReport validationReport = new ValidationReport();
+            PluginState pluginState = convertToViewer(model, storage, file, validationReport, fileFormat, fileInfoPath,
               aip.getPermissions());
+            addValidationReportAsHtml(validationReport, reportItem,
+              "Error list for file " + fileInfoPath.replace("//", "/"));
 
+            if (pluginState.equals(PluginState.FAILURE)) {
+              reportState = PluginState.FAILURE;
+            }
           }
         } else {
-          LOGGER.error("Cannot process AIP representation file", oFile.getCause());
+          addExceptionToValidationReport(representationValidationReport, "Cannot process file", oFile.getCause());
         }
       }
-
-      IOUtils.closeQuietly(allFiles);
-      if (!pluginResultState.equals(PluginState.SUCCESS)) {
-        reportState = PluginState.FAILURE;
-      }
     } catch (RODAException | RuntimeException e) {
-      LOGGER.error("Error processing AIP " + aip.getId() + ": " + e.getMessage(), e);
-      pluginResultState = PluginState.FAILURE;
+      addExceptionToValidationReport(representationValidationReport, "Error processing AIP " + aip.getId(), e);
       reportState = PluginState.FAILURE;
-      reportItem.addPluginDetails(" Loading into database visualization toolkit failed.");
+    } finally {
+      IOUtils.closeQuietly(allFiles);
     }
+    addValidationReportAsHtml(representationValidationReport, reportItem, "Error list for Representation "
+      + representation.getId());
     return reportState;
   }
 
@@ -473,7 +492,8 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
 
   @Override
   public List<PluginParameter> getParameters() {
-    return Arrays.asList(pluginParameters.get(PluginConstants.PARAMETER_SIARD_EXTENSIONS));
+    return Arrays.asList(pluginParameters.get(PluginConstants.PARAMETER_SIARD_EXTENSIONS),
+      pluginParameters.get(PluginConstants.PARAMETER_IGNORE_NON_SIARD));
   }
 
   @Override
@@ -483,6 +503,8 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
     // get the values (or defaults) for these
     String siardExtensionsString = parameters.get(PluginConstants.PARAMETER_SIARD_EXTENSIONS);
     siardExtensions = Arrays.asList(siardExtensionsString.split(","));
+
+    ignoreFiles = Boolean.valueOf(parameters.get(PluginConstants.PARAMETER_IGNORE_NON_SIARD));
 
     // use defaults for these
     solrHostname = pluginParameters.get(PluginConstants.PARAMETER_SOLR_HOSTNAME).getDefaultValue();
@@ -508,7 +530,7 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
     return properties;
   }
 
-  private boolean convert(Path siardPath, DIP dip) {
+  private boolean convert(Path siardPath, DIP dip, ValidationReport validationReport) {
     boolean conversionCompleted = false;
     LOGGER.info("starting to convert database " + siardPath.toAbsolutePath().toString());
 
@@ -537,15 +559,35 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
       try {
         siardImportModule.getDatabase(solrExportModule);
         conversionCompleted = true;
-      } catch (ModuleException | UnknownTypeException e) {
-        LOGGER.error("Could not convert the database to the Solr instance.", e);
+      } catch (ModuleException | UnknownTypeException | RuntimeException e) {
+        addExceptionToValidationReport(validationReport, "Could not convert the database to the Solr instance.", e);
       }
       long duration = System.currentTimeMillis() - startTime;
       LOGGER.info("Conversion time " + (duration / 60000) + "m " + (duration % 60000 / 1000) + "s");
     } catch (ModuleException e) {
-      LOGGER.error("Could not initialize modules", e);
+      addExceptionToValidationReport(validationReport, "Could not initialize modules", e);
     }
 
     return conversionCompleted;
+  }
+
+  private void addExceptionToValidationReport(ValidationReport validationreport, String message, Exception exception) {
+    LOGGER.error(message, exception);
+    StringBuilder builder = new StringBuilder(message).append(" details:\n");
+    for (Throwable throwable : ExceptionUtils.getThrowables(exception)) {
+      builder.append(ExceptionUtils.getMessage(throwable)).append("\n");
+    }
+    validationreport.addIssue(new ValidationIssue(builder.toString()));
+  }
+
+  private void addMessageToValidationReport(ValidationReport validationreport, String message) {
+    LOGGER.info(message);
+    validationreport.addIssue(new ValidationIssue(message));
+  }
+
+  private void addValidationReportAsHtml(ValidationReport validationReport, Report reportItem, String title) {
+    if (!validationReport.getIssues().isEmpty()) {
+      reportItem.setHtmlPluginDetails(true).addPluginDetails(validationReport.toHtml(false, false, false, title));
+    }
   }
 }
