@@ -106,7 +106,7 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
 
     pluginParameters.put(PluginConstants.PARAMETER_SIARD_EXTENSIONS, new PluginParameter(
       PluginConstants.PARAMETER_SIARD_EXTENSIONS, "File extensions to process",
-      PluginParameter.PluginParameterType.STRING, PluginConstants.getDefaultSiardExtensions(), false, false,
+      PluginParameter.PluginParameterType.STRING, PluginConstants.getDefaultSiardExtensions(), true, false,
       "The comma-separated list of file extensions that should be considered SIARDs by this task."));
   }
 
@@ -118,6 +118,7 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
   private String visualizationOpenPort;
   private String visualizationDeleteHostname;
   private String visualizationDeletePort;
+  private List<String> siardExtensions;
 
   @Override
   public String getVersionImpl() {
@@ -153,7 +154,7 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
    */
   @Override
   public RodaConstants.PreservationEventType getPreservationEventType() {
-    return null;
+    return RodaConstants.PreservationEventType.MIGRATION;
   }
 
   /**
@@ -165,7 +166,7 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
    */
   @Override
   public String getPreservationEventDescription() {
-    return null;
+    return "Create a dissemination for a siard database.";
   }
 
   /**
@@ -313,7 +314,7 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
     PluginState pluginResultState, String fileFormat, String fileInfoPath, Permissions permissions)
     throws RequestNotValidException, GenericException, AuthorizationDeniedException, NotFoundException {
     // FIXME 20161103 bferreira use other means to identify siard2
-    if ("siard".equalsIgnoreCase(fileFormat)) {
+    if (siardExtensions.contains(fileFormat)) {
       LOGGER.debug("Converting {} to the database viewer", file.getId());
       StoragePath fileStoragePath = ModelUtils.getFileStoragePath(file);
       DirectResourceAccess directAccess = storage.getDirectAccess(fileStoragePath);
@@ -472,13 +473,18 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
 
   @Override
   public List<PluginParameter> getParameters() {
-    return new ArrayList<>();
+    return Arrays.asList(pluginParameters.get(PluginConstants.PARAMETER_SIARD_EXTENSIONS));
   }
 
   @Override
   public void setParameterValues(Map<String, String> parameters) throws InvalidParameterException {
     super.setParameterValues(parameters);
 
+    // get the values (or defaults) for these
+    String siardExtensionsString = parameters.get(PluginConstants.PARAMETER_SIARD_EXTENSIONS);
+    siardExtensions = Arrays.asList(siardExtensionsString.split(","));
+
+    // use defaults for these
     solrHostname = pluginParameters.get(PluginConstants.PARAMETER_SOLR_HOSTNAME).getDefaultValue();
     solrPort = pluginParameters.get(PluginConstants.PARAMETER_SOLR_PORT).getDefaultValue();
     zookeeperHostname = pluginParameters.get(PluginConstants.PARAMETER_ZOOKEEPER_HOSTNAME).getDefaultValue();
