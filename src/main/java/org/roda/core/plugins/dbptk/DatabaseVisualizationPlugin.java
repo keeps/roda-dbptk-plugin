@@ -163,7 +163,7 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
    */
   @Override
   public RodaConstants.PreservationEventType getPreservationEventType() {
-    return RodaConstants.PreservationEventType.MIGRATION;
+    return RodaConstants.PreservationEventType.DIP_CREATION;
   }
 
   /**
