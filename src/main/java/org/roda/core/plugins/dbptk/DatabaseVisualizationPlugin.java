@@ -275,6 +275,7 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
     SimpleJobPluginInfo jobPluginInfo, List<File> list, Job job) throws PluginException {
     for (File file : list) {
       ValidationReport validationReport = new ValidationReport();
+      validationReport.setValid(false);
       Report reportItem = PluginHelper.initPluginReportItem(this, IdUtils.getFileId(file), File.class).setDateCreated(
         new Date());
       PluginState reportState = PluginState.SUCCESS;
@@ -370,6 +371,7 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
     Report report, SimpleJobPluginInfo jobPluginInfo, List<Representation> list, Job job) throws PluginException {
     for (Representation representation : list) {
       ValidationReport validationReport = new ValidationReport();
+      validationReport.setValid(false);
       Report reportItem = PluginHelper.initPluginReportItem(this, IdUtils.getRepresentationId(representation),
         Representation.class).setDateCreated(new Date());
       PluginHelper.updatePartialJobReport(this, model, index, reportItem, false, job);
@@ -442,6 +444,7 @@ public class DatabaseVisualizationPlugin<T extends IsRODAObject> extends Abstrac
               file.getId()).toString();
 
             ValidationReport validationReport = new ValidationReport();
+            validationReport.setValid(false);
             PluginState pluginState = convertToViewer(model, storage, file, validationReport, fileFormat, fileInfoPath,
               aip.getPermissions());
             addValidationReportAsHtml(validationReport, reportItem,
